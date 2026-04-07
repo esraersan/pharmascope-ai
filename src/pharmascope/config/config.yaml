@@ -1,0 +1,31 @@
+database:
+  host: localhost
+  port: 5432
+  name: pharmascope
+  user: pharmascope
+  password: pharmascope
+
+openfda:
+  base_url: "https://api.fda.gov/drug/event.json"
+  max_results_per_request: 100
+  max_total_results: 1000
+
+signals:
+  min_reports: 3
+  prr_threshold: 2.0
+  ror_threshold: 2.0
+  confidence_level: 0.95
+
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.0
+  max_tokens: 2000
+
+pubmed:
+  max_results: 20
+  embedding_model: text-embedding-3-small
+
+logging:
+  level: INFO
+  format: json
