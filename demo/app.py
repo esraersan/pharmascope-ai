@@ -7,6 +7,22 @@ import pandas as pd
 
 API_URL = "http://localhost:8000"
 
+
+def show_literature(papers: list[dict]) -> None:
+    """Show PubMed literature section."""
+    if not papers:
+        return
+    st.subheader("📚 Supporting Literature")
+    for p in papers:
+        with st.expander(f"📄 {p['title'][:100]}"):
+            st.markdown(f"**Authors:** {p['authors']}")
+            st.markdown(f"**Journal:** {p['journal']}")
+            st.markdown(f"**Published:** {p['pub_date']}")
+            if p.get('query_event'):
+                st.markdown(f"**Related to:** {p['query_event']}")
+            st.markdown(f"[View on PubMed]({p['url']})")
+
+
 st.set_page_config(
     page_title="pharmascope-ai",
     page_icon="💊",
@@ -114,6 +130,8 @@ if analyze and drug_name:
     fig2.add_hline(y=2.0, line_dash="dash", line_color="orange")
     fig2.add_vline(x=2.0, line_dash="dash", line_color="orange")
     st.plotly_chart(fig2, use_container_width=True)
+
+    show_literature(data.get("literature", []))
 
     st.divider()
     st.caption("Data source: FDA FAERS via openFDA API | Stats: PRR + ROR with 95% CI")
