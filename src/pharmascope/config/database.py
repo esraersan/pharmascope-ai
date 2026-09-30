@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
     database_url: str = (
-        "postgresql://pharmascope:pharmascope@localhost:5432/pharmascope"
+        "postgresql+psycopg://pharmascope:pharmascope@localhost:5432/pharmascope"
     )
 
 

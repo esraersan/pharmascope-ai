@@ -18,7 +18,7 @@ services:
   app:
     build: .
     environment:
-      DATABASE_URL: postgresql://pharmascope:pharmascope@db:5432/pharmascope
+      DATABASE_URL: postgresql+psycopg://pharmascope:pharmascope@db:5432/pharmascope
     ports:
       - "8000:8000"
     depends_on:
