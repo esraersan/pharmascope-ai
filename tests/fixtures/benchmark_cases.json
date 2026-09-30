@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "synthetic-drug-event",
+      "drug_name": "drug-x",
+      "event_term": "event-y",
+      "expected_signal": true,
+      "regulatory_date": "2004-01-01",
+      "source_url": "https://example.test/synthetic",
+      "notes": "Synthetic CI smoke case; not scientific evidence."
+    }
+  ]
+}

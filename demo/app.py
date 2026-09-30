@@ -1,20 +1,32 @@
 """Streamlit dashboard for pharmascope-ai."""
 
-import streamlit as st
-import plotly.express as px
+import json
+import os
+from pathlib import Path
+
 import httpx
 import pandas as pd
+import plotly.express as px
+import streamlit as st
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("PHARMASCOPE_API_URL", "http://localhost:8000")
+ARTIFACT_DIR = Path(os.getenv("PHARMASCOPE_ARTIFACT_DIR", "artifacts/benchmark"))
+
+
+@st.cache_data(ttl=30)
+def get_snapshots() -> list[dict]:
+    response = httpx.get(f"{API_URL}/snapshots", timeout=10)
+    response.raise_for_status()
+    return response.json()
 
 
 def show_literature(papers: list[dict]) -> None:
     """Show PubMed literature section."""
     if not papers:
         return
-    st.subheader("📚 Supporting Literature")
+    st.subheader("Supporting literature")
     for p in papers:
-        with st.expander(f"📄 {p['title'][:100]}"):
+        with st.expander(p["title"][:100]):
             st.markdown(f"**Authors:** {p['authors']}")
             st.markdown(f"**Journal:** {p['journal']}")
             st.markdown(f"**Published:** {p['pub_date']}")
@@ -25,31 +37,58 @@ def show_literature(papers: list[dict]) -> None:
 
 st.set_page_config(
     page_title="pharmascope-ai",
-    page_icon="💊",
     layout="wide",
 )
 
-st.title("💊 pharmascope-ai")
-st.markdown("**Drug Safety Intelligence Platform** — FAERS Signal Detection")
+st.title("pharmascope-ai")
+st.markdown("**Reproducible pharmacovigilance signal detection**")
 st.divider()
 
-col1, col2 = st.columns([3, 1])
+try:
+    snapshots = get_snapshots()
+except Exception as exc:
+    st.error(f"Could not load reference snapshots from the API: {exc}")
+    st.stop()
+
+if not snapshots:
+    st.warning(
+        "No complete FAERS snapshot is available. Validate and import a fixed "
+        "snapshot before running signal analysis."
+    )
+    st.code(
+        "pharmascope init-db\n"
+        "pharmascope load-snapshot data/snapshot-manifest.json"
+    )
+    st.stop()
+
+snapshot_labels = {
+    snapshot["snapshot_id"]: (
+        f"{snapshot['snapshot_id']} — "
+        f"{snapshot['report_count']:,} reports"
+    )
+    for snapshot in snapshots
+}
+col1, col2 = st.columns([2, 2])
 with col1:
     drug_name = st.text_input(
-        "Enter a drug name",
-        placeholder="e.g. rofecoxib, ibuprofen, metformin",
+        "Drug name",
+        placeholder="e.g. rofecoxib",
     )
 with col2:
-    limit = st.slider("Reports to fetch", 50, 500, 100, step=50)
+    snapshot_id = st.selectbox(
+        "Fixed reference snapshot",
+        options=list(snapshot_labels),
+        format_func=snapshot_labels.get,
+    )
 
-analyze = st.button("🔍 Analyze", type="primary")
+analyze = st.button("Analyze", type="primary")
 
 if analyze and drug_name:
-    with st.spinner(f"Fetching FAERS data and computing signals for {drug_name}..."):
+    with st.spinner(f"Computing signals for {drug_name}..."):
         try:
             response = httpx.post(
                 f"{API_URL}/analyze",
-                json={"drug_name": drug_name, "limit": limit},
+                json={"drug_name": drug_name, "snapshot_id": snapshot_id},
                 timeout=60,
             )
             response.raise_for_status()
@@ -65,7 +104,7 @@ if analyze and drug_name:
 
     df = pd.DataFrame(signals)
 
-    st.subheader("📊 Summary")
+    st.subheader("Summary")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Drug-Event Pairs", data["total_signals"])
     m2.metric("Flagged Signals", data["flagged_signals"])
@@ -74,8 +113,8 @@ if analyze and drug_name:
 
     st.divider()
 
-    st.subheader("🚨 Signal Detection Results")
-    df["flagged"] = df["is_signal"].map({True: "🚨 Yes", False: "No"})
+    st.subheader("Signal detection results")
+    df["flagged"] = df["is_signal"].map({True: "Yes", False: "No"})
     df_display = df[[
         "event_term", "report_count", "prr", "prr_lower_ci",
         "prr_upper_ci", "ror", "flagged"
@@ -92,9 +131,11 @@ if analyze and drug_name:
 
     st.divider()
 
-    st.subheader("📈 Top 15 Signals by PRR")
+    st.subheader("Top 15 signals by PRR")
     top15 = df.head(15).copy()
-    top15["color"] = top15["is_signal"].map({True: "Flagged Signal", False: "Below Threshold"})
+    top15["color"] = top15["is_signal"].map(
+        {True: "Flagged Signal", False: "Below Threshold"}
+    )
     fig = px.bar(
         top15,
         x="prr",
@@ -115,7 +156,7 @@ if analyze and drug_name:
 
     st.divider()
 
-    st.subheader("🔬 PRR vs ROR Comparison")
+    st.subheader("PRR vs ROR comparison")
     fig2 = px.scatter(
         df,
         x="prr",
@@ -134,7 +175,52 @@ if analyze and drug_name:
     show_literature(data.get("literature", []))
 
     st.divider()
-    st.caption("Data source: FDA FAERS via openFDA API | Stats: PRR + ROR with 95% CI")
+    st.caption(
+        f"Reference population: {data['snapshot_id']} | "
+        "Suspect-drug reports only | PRR and ROR with 95% confidence intervals"
+    )
+    st.info(
+        "Disproportionality identifies reporting associations, not causation. "
+        "Spontaneous reports are affected by under-reporting, stimulated "
+        "reporting, missing data, and confounding by indication."
+    )
 
 elif analyze and not drug_name:
     st.warning("Please enter a drug name.")
+
+summary_path = ARTIFACT_DIR / "summary.json"
+if summary_path.exists():
+    st.divider()
+    st.header("Retrospective temporal benchmark")
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    case_options = {
+        case["case_id"]: case for case in summary.get("cases", [])
+    }
+    if case_options:
+        case_id = st.selectbox("Benchmark case", options=list(case_options))
+        trajectory_path = ARTIFACT_DIR / f"{case_id}.json"
+        if trajectory_path.exists():
+            trajectory = pd.DataFrame(
+                json.loads(trajectory_path.read_text(encoding="utf-8"))
+            )
+            trajectory["cutoff"] = pd.to_datetime(trajectory["cutoff"])
+            figure = px.line(
+                trajectory,
+                x="cutoff",
+                y=["prr", "prr_lower_ci"],
+                labels={"cutoff": "Report cutoff", "value": "Ratio"},
+                title=f"Temporal signal trajectory: {case_id}",
+            )
+            figure.add_hline(
+                y=2.0,
+                line_dash="dash",
+                annotation_text="PRR threshold",
+            )
+            st.plotly_chart(figure, use_container_width=True)
+            selected = case_options[case_id]
+            st.caption(
+                f"First threshold crossing: "
+                f"{selected.get('first_signal_date') or 'not observed'} | "
+                f"Regulatory date: "
+                f"{selected.get('regulatory_date') or 'control case'}"
+            )

@@ -1,0 +1,9 @@
+report_id,receive_date,drug_name_normalized,event_term_normalized,drug_role
+1,2003-01-10,drug-x,event-y,primary_suspect
+2,2003-01-11,drug-x,event-y,primary_suspect
+3,2003-02-12,drug-x,event-y,primary_suspect
+4,2003-02-13,other,event-y,primary_suspect
+5,2003-03-14,drug-x,other-event,primary_suspect
+6,2003-03-15,other,other-event,primary_suspect
+7,2003-04-16,other,other-event,primary_suspect
+8,2003-04-17,other,other-event,primary_suspect

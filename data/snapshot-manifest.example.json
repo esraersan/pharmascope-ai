@@ -1,0 +1,8 @@
+{
+  "snapshot_id": "faers-YYYYQX",
+  "source_url": "https://open.fda.gov/data/downloads/",
+  "file": "raw/replace-with-downloaded-export.json.zip",
+  "sha256": "replace-with-64-character-sha256",
+  "period_start": "YYYY-01-01",
+  "period_end": "YYYY-03-31"
+}

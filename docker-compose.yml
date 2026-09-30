@@ -27,5 +27,20 @@ services:
     volumes:
       - ./src:/app/src
 
+  dashboard:
+    build: .
+    command:
+      - streamlit
+      - run
+      - demo/app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+    environment:
+      PHARMASCOPE_API_URL: http://app:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - app
+
 volumes:
   postgres_data:

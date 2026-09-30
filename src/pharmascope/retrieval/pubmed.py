@@ -1,8 +1,10 @@
-"""PubMed semantic search."""
+"""Keyword-based PubMed retrieval through NCBI E-utilities."""
 
 import time
-import structlog
+from datetime import date
+
 import httpx
+import structlog
 
 logger = structlog.get_logger()
 
@@ -31,7 +33,7 @@ def search_pubmed(
         "retmode": "json",
         "datetype": "pdat",
         "mindate": str(min_year),
-        "maxdate": "2026",
+        "maxdate": str(date.today().year),
         "sort": "relevance",
     }
 

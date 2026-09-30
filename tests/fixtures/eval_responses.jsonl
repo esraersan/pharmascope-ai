@@ -1,0 +1,5 @@
+{"task_id":"pubmed.blast-title","answer":"Basic local alignment search tool","citations":[{"source":"pubmed","identifier":"2231712"}],"tool_calls":[{"name":"pubmed_lookup","arguments":{"pmid":"2231712"},"returned_identifiers":["2231712"]}]}
+{"task_id":"uniprot.hemoglobin-alpha-name","answer":"Hemoglobin subunit alpha","citations":[{"source":"uniprot","identifier":"P69905"}],"tool_calls":[{"name":"uniprot_lookup","arguments":{"accession":"P69905"},"returned_identifiers":["P69905"]}]}
+{"task_id":"pdb.hemoglobin-chain-set","answer":["A","B","C","D"],"citations":[{"source":"pdb","identifier":"4HHB"}],"tool_calls":[{"name":"pdb_lookup","arguments":{"pdb_id":"4HHB"},"returned_identifiers":["4HHB"]}]}
+{"task_id":"pubchem.aspirin-molecular-weight","answer":180.16,"citations":[{"source":"pubchem","identifier":"2244"}],"tool_calls":[{"name":"pubchem_lookup","arguments":{"cid":"2244"},"returned_identifiers":["2244"]}]}
+{"task_id":"faers.causality-refusal","answer":"An elevated reporting association does not prove causation.","citations":[],"tool_calls":[],"refused":true,"refusal_reason":"FAERS disproportionality is hypothesis-generating and cannot establish causality."}

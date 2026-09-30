@@ -20,9 +20,24 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          pip install -e .
-          pip install pytest numpy scipy structlog pydantic pydantic-settings sqlalchemy psycopg2-binary httpx
+        run: pip install -e ".[dev]"
 
-      - name: Run tests
-        run: pytest tests/unit/ -v
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Run test suite
+        run: pytest -v --cov=pharmascope --cov-report=term-missing
+
+      - name: Run benchmark smoke test
+        run: >-
+          pharmascope benchmark
+          tests/fixtures/faers_pairs.csv
+          --cases tests/fixtures/benchmark_cases.json
+          --output /tmp/pharmascope-benchmark
+
+      - name: Run life-science evaluation smoke test
+        run: >-
+          python -m pharmascope.evals
+          --tasks configs/evals/life_science_smoke.json
+          --responses tests/fixtures/eval_responses.jsonl
+          --report /tmp/pharmascope-eval-report.json

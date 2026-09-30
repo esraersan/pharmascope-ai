@@ -1,0 +1,22 @@
+{
+  "dataset_name": "replace-with-dataset-name",
+  "dataset_source": "NOT_RUN: replace with a versioned source or checksum",
+  "endpoint": "replace-with-binary-safety-endpoint",
+  "fingerprint_bits": 2048,
+  "fingerprint_ngram_range": [
+    1,
+    3
+  ],
+  "model_parameters": {
+    "l2": 0.001,
+    "learning_rate": 0.1,
+    "max_iter": 500,
+    "tolerance": 1e-08
+  },
+  "seed": 2026,
+  "split_fractions": [
+    0.8,
+    0.1,
+    0.1
+  ]
+}

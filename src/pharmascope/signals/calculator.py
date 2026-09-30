@@ -5,11 +5,14 @@ Implements Proportional Reporting Ratio (PRR) and
 Reporting Odds Ratio (ROR) — standard pharmacovigilance methods.
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 import structlog
-from dataclasses import dataclass
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from pharmascope.ingestion.models import DataSnapshot
 
 logger = structlog.get_logger()
 
@@ -26,6 +29,7 @@ class SignalScore:
     ror: float
     ror_lower_ci: float
     ror_upper_ci: float
+    snapshot_id: str = ""
 
     @property
     def is_signal(self) -> bool:
@@ -73,7 +77,7 @@ def compute_prr(a: int, b: int, c: int, d: int) -> tuple[float, float, float]:
     lower = np.exp(log_prr - 1.96 * se)
     upper = np.exp(log_prr + 1.96 * se)
 
-    return round(prr, 4), round(lower, 4), round(upper, 4)
+    return float(round(prr, 4)), float(round(lower, 4)), float(round(upper, 4))
 
 
 def compute_ror(a: int, b: int, c: int, d: int) -> tuple[float, float, float]:
@@ -100,13 +104,14 @@ def compute_ror(a: int, b: int, c: int, d: int) -> tuple[float, float, float]:
     lower = np.exp(log_ror - 1.96 * se)
     upper = np.exp(log_ror + 1.96 * se)
 
-    return round(ror, 4), round(lower, 4), round(upper, 4)
+    return float(round(ror, 4)), float(round(lower, 4)), float(round(upper, 4))
 
 
 def get_contingency_table(
     drug_name: str,
     event_term: str,
-    db: Session
+    db: Session,
+    snapshot_id: str,
 ) -> tuple[int, int, int, int]:
     """
     Build the 2x2 contingency table for a drug-event pair.
@@ -114,29 +119,43 @@ def get_contingency_table(
     Returns:
         Tuple of (a, b, c, d)
     """
+    params = {
+        "drug": drug_name,
+        "event": event_term,
+        "snapshot_id": snapshot_id,
+    }
+
     # a: this drug + this event
     a = db.execute(text("""
         SELECT COUNT(DISTINCT report_id) FROM drug_event_pairs
-        WHERE drug_name_normalized = :drug
+        WHERE snapshot_id = :snapshot_id
+        AND drug_name_normalized = :drug
         AND event_term_normalized = :event
-    """), {"drug": drug_name, "event": event_term}).scalar()
+        AND drug_role IN ('primary_suspect', 'secondary_suspect')
+    """), params).scalar()
 
     # a+c: this drug, all events
     ac = db.execute(text("""
         SELECT COUNT(DISTINCT report_id) FROM drug_event_pairs
-        WHERE drug_name_normalized = :drug
-    """), {"drug": drug_name}).scalar()
+        WHERE snapshot_id = :snapshot_id
+        AND drug_name_normalized = :drug
+        AND drug_role IN ('primary_suspect', 'secondary_suspect')
+    """), params).scalar()
 
     # a+b: all drugs, this event
     ab = db.execute(text("""
         SELECT COUNT(DISTINCT report_id) FROM drug_event_pairs
-        WHERE event_term_normalized = :event
-    """), {"event": event_term}).scalar()
+        WHERE snapshot_id = :snapshot_id
+        AND event_term_normalized = :event
+        AND drug_role IN ('primary_suspect', 'secondary_suspect')
+    """), params).scalar()
 
     # total reports
     total = db.execute(text("""
         SELECT COUNT(DISTINCT report_id) FROM drug_event_pairs
-    """)).scalar()
+        WHERE snapshot_id = :snapshot_id
+        AND drug_role IN ('primary_suspect', 'secondary_suspect')
+    """), params).scalar()
 
     c = ac - a
     b = ab - a
@@ -145,7 +164,27 @@ def get_contingency_table(
     return int(a), int(b), int(c), int(d)
 
 
-def compute_signals(drug_name: str, db: Session) -> list[SignalScore]:
+def resolve_snapshot_id(db: Session, snapshot_id: str | None = None) -> str:
+    """Return a complete immutable snapshot or fail with an actionable error."""
+    query = db.query(DataSnapshot).filter_by(is_complete=True)
+    if snapshot_id:
+        snapshot = query.filter_by(snapshot_id=snapshot_id).first()
+    else:
+        snapshot = query.order_by(DataSnapshot.period_end.desc()).first()
+    if snapshot is None:
+        requested = f" '{snapshot_id}'" if snapshot_id else ""
+        raise ValueError(
+            f"No complete FAERS snapshot{requested} is available. "
+            "Import and validate a fixed snapshot before computing signals."
+        )
+    return snapshot.snapshot_id
+
+
+def compute_signals(
+    drug_name: str,
+    db: Session,
+    snapshot_id: str | None = None,
+) -> list[SignalScore]:
     """
     Compute PRR and ROR signals for all events associated with a drug.
 
@@ -156,24 +195,32 @@ def compute_signals(drug_name: str, db: Session) -> list[SignalScore]:
     Returns:
         List of SignalScore objects sorted by PRR descending
     """
-    logger.info("computing_signals", drug=drug_name)
+    snapshot_id = resolve_snapshot_id(db, snapshot_id)
+    logger.info("computing_signals", drug=drug_name, snapshot_id=snapshot_id)
 
     # Get all events for this drug with their counts
     rows = db.execute(text("""
         SELECT event_term_normalized, COUNT(DISTINCT report_id) as cnt
         FROM drug_event_pairs
-        WHERE drug_name_normalized = :drug
+        WHERE snapshot_id = :snapshot_id
+        AND drug_name_normalized = :drug
+        AND drug_role IN ('primary_suspect', 'secondary_suspect')
         GROUP BY event_term_normalized
         HAVING COUNT(DISTINCT report_id) >= 3
         ORDER BY cnt DESC
-    """), {"drug": drug_name}).fetchall()
+    """), {"drug": drug_name, "snapshot_id": snapshot_id}).fetchall()
 
     scores = []
     for row in rows:
         event_term = row[0]
         report_count = row[1]
 
-        a, b, c, d = get_contingency_table(drug_name, event_term, db)
+        a, b, c, d = get_contingency_table(
+            drug_name,
+            event_term,
+            db,
+            snapshot_id,
+        )
 
         prr, prr_lower, prr_upper = compute_prr(a, b, c, d)
         ror, ror_lower, ror_upper = compute_ror(a, b, c, d)
@@ -188,6 +235,7 @@ def compute_signals(drug_name: str, db: Session) -> list[SignalScore]:
             ror=ror,
             ror_lower_ci=ror_lower,
             ror_upper_ci=ror_upper,
+            snapshot_id=snapshot_id,
         )
         scores.append(score)
 

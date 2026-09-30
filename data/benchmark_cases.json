@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "control_policy": "Controls are comparator pairs absent from the cited regulatory action. They are not claims that the drug can never cause the event.",
+  "cases": [
+    {
+      "case_id": "rofecoxib-mi",
+      "drug_name": "rofecoxib",
+      "event_term": "myocardial infarction",
+      "expected_signal": true,
+      "regulatory_date": "2004-09-30",
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/vioxx-rofecoxib-questions-and-answers",
+      "notes": "Withdrawal followed evidence of increased cardiovascular events."
+    },
+    {
+      "case_id": "terfenadine-torsade",
+      "drug_name": "terfenadine",
+      "event_term": "torsade de pointes",
+      "expected_signal": true,
+      "regulatory_date": "1998-02-01",
+      "source_url": "https://pubmed.ncbi.nlm.nih.gov/9792197/",
+      "notes": "Literature review documents QT prolongation and torsades risk before market removal."
+    },
+    {
+      "case_id": "troglitazone-hepatic-failure",
+      "drug_name": "troglitazone",
+      "event_term": "hepatic failure",
+      "expected_signal": true,
+      "regulatory_date": "2000-03-21",
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/troglitazone-rezulin-information",
+      "notes": "FDA requested withdrawal because of severe hepatotoxicity."
+    },
+    {
+      "case_id": "cerivastatin-rhabdomyolysis",
+      "drug_name": "cerivastatin",
+      "event_term": "rhabdomyolysis",
+      "expected_signal": true,
+      "regulatory_date": "2001-08-08",
+      "source_url": "https://pubmed.ncbi.nlm.nih.gov/12196085/",
+      "notes": "Market withdrawal was associated with fatal rhabdomyolysis reports."
+    },
+    {
+      "case_id": "valdecoxib-stevens-johnson",
+      "drug_name": "valdecoxib",
+      "event_term": "stevens-johnson syndrome",
+      "expected_signal": true,
+      "regulatory_date": "2005-04-07",
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/valdecoxib-marketed-bextra-information",
+      "notes": "FDA requested withdrawal; serious skin reactions were among the stated risks."
+    },
+    {
+      "case_id": "rofecoxib-control",
+      "drug_name": "rofecoxib",
+      "event_term": "nasopharyngitis",
+      "expected_signal": false,
+      "regulatory_date": null,
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/vioxx-rofecoxib-questions-and-answers",
+      "notes": "Within-drug comparator not identified as the withdrawal-defining event in the cited source."
+    },
+    {
+      "case_id": "terfenadine-control",
+      "drug_name": "terfenadine",
+      "event_term": "injection site pain",
+      "expected_signal": false,
+      "regulatory_date": null,
+      "source_url": "https://pubmed.ncbi.nlm.nih.gov/9792197/",
+      "notes": "Comparator pair; not an established negative causal label."
+    },
+    {
+      "case_id": "troglitazone-control",
+      "drug_name": "troglitazone",
+      "event_term": "toothache",
+      "expected_signal": false,
+      "regulatory_date": null,
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/troglitazone-rezulin-information",
+      "notes": "Comparator pair; not an established negative causal label."
+    },
+    {
+      "case_id": "cerivastatin-control",
+      "drug_name": "cerivastatin",
+      "event_term": "seasonal allergy",
+      "expected_signal": false,
+      "regulatory_date": null,
+      "source_url": "https://pubmed.ncbi.nlm.nih.gov/12196085/",
+      "notes": "Comparator pair; not an established negative causal label."
+    },
+    {
+      "case_id": "valdecoxib-control",
+      "drug_name": "valdecoxib",
+      "event_term": "motion sickness",
+      "expected_signal": false,
+      "regulatory_date": null,
+      "source_url": "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/valdecoxib-marketed-bextra-information",
+      "notes": "Comparator pair; not an established negative causal label."
+    }
+  ]
+}

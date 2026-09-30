@@ -1,9 +1,9 @@
 """Database connection and session management."""
 
 import structlog
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from pydantic_settings import BaseSettings
 
 logger = structlog.get_logger()
 
@@ -11,12 +11,11 @@ logger = structlog.get_logger()
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    model_config = SettingsConfigDict(env_file=".env")
+
     database_url: str = (
         "postgresql://pharmascope:pharmascope@localhost:5432/pharmascope"
     )
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()

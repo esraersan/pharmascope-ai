@@ -1,7 +1,6 @@
 """Unit tests for PRR and ROR signal detection."""
 
-import pytest
-from pharmascope.signals.calculator import compute_prr, compute_ror, SignalScore
+from pharmascope.signals.calculator import SignalScore, compute_prr, compute_ror
 
 
 def test_prr_known_signal():

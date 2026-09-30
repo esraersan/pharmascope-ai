@@ -1,16 +1,19 @@
 """FastAPI application for pharmascope-ai."""
 
+from typing import Annotated
+
 import structlog
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from pharmascope.config.database import get_db, test_connection
-from pharmascope.ingestion.fetcher import store_reports
-from pharmascope.signals.calculator import compute_signals
+from pharmascope.ingestion.models import DataSnapshot
 from pharmascope.retrieval.pubmed import get_pubmed_context
+from pharmascope.signals.calculator import compute_signals, resolve_snapshot_id
 
 logger = structlog.get_logger()
+DbSession = Annotated[Session, Depends(get_db)]
 
 app = FastAPI(
     title="pharmascope-ai",
@@ -21,7 +24,7 @@ app = FastAPI(
 
 class DrugRequest(BaseModel):
     drug_name: str
-    limit: int = 100
+    snapshot_id: str | None = None
 
 
 class SignalResponse(BaseModel):
@@ -35,6 +38,7 @@ class SignalResponse(BaseModel):
     ror_lower_ci: float
     ror_upper_ci: float
     is_signal: bool
+    snapshot_id: str
 
 
 class PaperResponse(BaseModel):
@@ -49,6 +53,7 @@ class PaperResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     drug_name: str
+    snapshot_id: str
     total_signals: int
     flagged_signals: int
     signals: list[SignalResponse]
@@ -64,10 +69,32 @@ def health_check():
     }
 
 
+@app.get("/snapshots")
+def list_snapshots(db: DbSession):
+    """List complete reference populations available for analysis."""
+    snapshots = (
+        db.query(DataSnapshot)
+        .filter_by(is_complete=True)
+        .order_by(DataSnapshot.period_end.desc())
+        .all()
+    )
+    return [
+        {
+            "snapshot_id": snapshot.snapshot_id,
+            "period_start": snapshot.period_start,
+            "period_end": snapshot.period_end,
+            "report_count": snapshot.report_count,
+            "sha256": snapshot.sha256,
+            "source_url": snapshot.source_url,
+        }
+        for snapshot in snapshots
+    ]
+
+
 @app.post("/analyze", response_model=AnalysisResponse)
-def analyze_drug(request: DrugRequest, db: Session = Depends(get_db)):
+def analyze_drug(request: DrugRequest, db: DbSession):
     """
-    Fetch FAERS reports for a drug and return PRR/ROR signals + PubMed literature.
+    Analyze a drug against a fixed FAERS snapshot and retrieve literature.
     """
     drug = request.drug_name.lower().strip()
     if not drug:
@@ -76,16 +103,16 @@ def analyze_drug(request: DrugRequest, db: Session = Depends(get_db)):
     logger.info("analyze_request", drug=drug)
 
     try:
-        store_reports(drug, db, limit=request.limit)
-    except Exception as e:
-        logger.error("ingestion_failed", drug=drug, error=str(e))
-        raise HTTPException(status_code=502, detail=f"Failed to fetch FAERS data: {e}")
-
-    try:
-        signals = compute_signals(drug, db)
+        snapshot_id = resolve_snapshot_id(db, request.snapshot_id)
+        signals = compute_signals(drug, db, snapshot_id=snapshot_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except Exception as e:
         logger.error("signal_computation_failed", drug=drug, error=str(e))
-        raise HTTPException(status_code=500, detail=f"Signal computation failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Signal computation failed: {e}",
+        ) from e
 
     # Get flagged events for literature search
     flagged_events = [s.event_term for s in signals if s.is_signal][:5]
@@ -107,6 +134,7 @@ def analyze_drug(request: DrugRequest, db: Session = Depends(get_db)):
             ror_lower_ci=s.ror_lower_ci,
             ror_upper_ci=s.ror_upper_ci,
             is_signal=s.is_signal,
+            snapshot_id=s.snapshot_id,
         )
         for s in signals
     ]
@@ -117,6 +145,7 @@ def analyze_drug(request: DrugRequest, db: Session = Depends(get_db)):
 
     return AnalysisResponse(
         drug_name=drug,
+        snapshot_id=snapshot_id,
         total_signals=len(signals),
         flagged_signals=sum(1 for s in signals if s.is_signal),
         signals=response_signals,

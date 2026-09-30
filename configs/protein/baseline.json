@@ -1,0 +1,18 @@
+{
+  "model": {
+    "alpha": 1.0,
+    "type": "ridge_regression"
+  },
+  "features": {
+    "ligand_hash_size": 256,
+    "ligand_ngram_max": 4,
+    "ligand_ngram_min": 2,
+    "signed_hashing": true
+  },
+  "split": {
+    "method": "connected_protein_family_and_ligand_group_holdout",
+    "seed": 0,
+    "test_fraction": 0.2,
+    "validation_fraction": 0.1
+  }
+}
